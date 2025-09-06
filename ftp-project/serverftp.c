@@ -18,7 +18,6 @@
 
 #define SERVER_FTP_PORT 2125
 
-
 /* Error and OK codes */
 #define OK 0
 #define ER_INVALID_HOST_NAME -1

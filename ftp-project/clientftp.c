@@ -27,7 +27,6 @@
 #define ER_SEND_FAILED -5
 #define ER_RECEIVE_FAILED -6
 
-
 /* Function prototypes */
 
 int clntConnect(char	*serverName, int *s);
