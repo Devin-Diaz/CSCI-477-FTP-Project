@@ -28,21 +28,16 @@
 #define ER_RECEIVE_FAILED -6
 #define ER_ACCEPT_FAILED -7
 
-
 /* Function prototypes */
-
 int svcInitServer(int *s);
 int sendMessage (int s, char *msg, int  msgSize);
 int receiveMessage(int s, char *buffer, int  bufferSize, int *msgSize);
 
-
 /* List of all global variables */
-
 char userCmd[1024];	/* user typed ftp command line received from client */
 char cmd[1024];		/* ftp command (without argument) extracted from userCmd */
 char argument[1024];	/* argument (without ftp command) extracted from userCmd */
 char replyMsg[1024];       /* buffer to send reply message to client */
-
 
 /*
  * main
@@ -65,19 +60,13 @@ char replyMsg[1024];       /* buffer to send reply message to client */
  *	ER_ACCEPT_FAILED	- Accepting client connection request failed
  *	N			- Failed stauts, value of N depends on the command processed
  */
-
-int main(	
-	int argc,
-	char *argv[]
-	)
-{
+int main(int argc, char *argv[]) {
 	/* List of local varibale */
 
 	int msgSize;        /* Size of msg received in octets (bytes) */
 	int listenSocket;   /* listening server ftp socket for client connect request */
 	int ccSocket;        /* Control connection socket - to be used in all client communication */
 	int status;
-
 
 	/*
 	 * NOTE: without \n at the end of format string in printf,
@@ -86,8 +75,7 @@ int main(
 	*/
 	printf("Started execution of server ftp\n");
 
-
-	 /*initialize server ftp*/
+	/*initialize server ftp*/
 	printf("Initialize ftp server\n");	/* changed text */
 
 	status=svcInitServer(&listenSocket);
@@ -96,7 +84,6 @@ int main(
 		printf("Exiting server ftp due to svcInitServer returned error\n");
 		exit(status);
 	}
-
 
 	printf("ftp server is waiting to accept connection\n");
 
@@ -115,7 +102,6 @@ int main(
 
 	printf("Connected to client, calling receiveMsg to get ftp cmd from client \n");
 
-
 	/* Receive and process ftp commands from client until quit command.
  	 * On receiving quit command, send reply to client and 
          * then close the control connection socket "ccSocket". 
@@ -124,18 +110,20 @@ int main(
 	{
 	    /* Receive client ftp commands until */
  	    status=receiveMessage(ccSocket, userCmd, sizeof(userCmd), &msgSize);
-	    if(status < 0)
-	    {
-		printf("Receive message failed. Closing control connection \n");
-		printf("Server ftp is terminating.\n");
-		break;
-	    }
+	    
+		if(status < 0) {
+			printf("Receive message failed. Closing control connection \n");
+			printf("Server ftp is terminating.\n");
+			break;
+		}
 
 
-/*
- * Starting Homework#2 program to process all ftp commandsmust be added here.
- * See Homework#2 for list of ftp commands to implement.
- */
+
+		/*
+		* Starting Homework#2 program to process all ftp commandsmust be added here.
+		* See Homework#2 for list of ftp commands to implement.
+		*/
+
 	    /* Separate command and argument from userCmd */
 	    strcpy(cmd, userCmd);  /* Modify in Homework 2.  Use strtok function */
 	    strcpy(argument, "");  /* Modify in Homework 2.  Use strtok function */
@@ -145,14 +133,14 @@ int main(
 	     * each command received in this implementation.
 	     */
 	    strcpy(replyMsg,"200 cmd okay\n");  /* Should have appropriate reply msg starting HW2 */
-	    status=sendMessage(ccSocket,replyMsg,strlen(replyMsg) + 1);	/* Added 1 to include NULL character in */
-				/* the reply string strlen does not count NULL character */
-	    if(status < 0)
-	    {
-		break;  /* exit while loop */
+	    status = sendMessage(ccSocket, replyMsg, strlen(replyMsg) + 1);	/* Added 1 to include NULL character in */
+		
+		/* the reply string strlen does not count NULL character */
+	    if(status < 0) {
+			break;  /* exit while loop */
 	    }
-	}
-	while(strcmp(cmd, "quit") != 0);
+
+	} while(strcmp(cmd, "quit") != 0);
 
 	printf("Closing control connection socket.\n");
 	close (ccSocket);  /* Close client control connection socket */

@@ -16,7 +16,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define SERVER_FTP_PORT 2125
+/* Diaz reserved port number for control connection */
+#define SERVER_FTP_PORT 2125 
 
 /* Error and OK codes */
 #define OK 0
@@ -27,20 +28,19 @@
 #define ER_SEND_FAILED -5
 #define ER_RECEIVE_FAILED -6
 
+/* DIAZ CHANGE HW2: Delimeter that will be used by tokenizer, added for readability purposes */
+#define COMMAND_DELIMETER " "
+
 /* Function prototypes */
-
-int clntConnect(char	*serverName, int *s);
-int sendMessage (int s, char *msg, int  msgSize);
-int receiveMessage(int s, char *buffer, int  bufferSize, int *msgSize);
-
+int clntConnect(char *serverName, int *s);
+int sendMessage (int s, char *msg, int msgSize);
+int receiveMessage(int s, char *buffer, int bufferSize, int *msgSize);
 
 /* List of all global variables */
-
 char userCmd[1024];	/* user typed ftp command line read from keyboard */
 char cmd[1024];		/* ftp command extracted from userCmd */
 char argument[1024];	/* argument extracted from userCmd */
 char replyMsg[1024];    /* buffer to receive reply message from server */
-
 
 /*
  * main
@@ -62,12 +62,7 @@ char replyMsg[1024];    /* buffer to receive reply message from server */
  *	OK	- Successful execution until QUIT command from client 
  *	N	- Failed status, value of N depends on the function called or cmd processed
  */
-
-int main(	
-	int argc,
-	char *argv[]
-	)
-{
+int main(int argc, char *argv[]) {
 	/* List of local varibale */
 
 	int ccSocket;	/* Control connection socket - to be used in all client communication */
@@ -81,7 +76,6 @@ int main(
  	 */
 	printf("Started execution of client ftp\n");
 
-
 	 /* Connect to client ftp*/
 	printf("Calling clntConnect to connect to the server\n");	/* changed text */
 
@@ -92,7 +86,6 @@ int main(
 		return (status);
 	}
 
-
 	/* 
 	 * Read an ftp command with argument, if any, in one line from user into userCmd.
 	 * Copy ftp command part into ftpCmd and the argument into arg array.
@@ -101,31 +94,46 @@ int main(
 	 * until quit command is typed by the user.
 	 */
 
-	do
-	{
+	do {
 		printf("my ftp> ");
-		strcpy(userCmd, "quit");  /* This statement must be replaced in homework #2 */
-				/* to read the command from the user. Use gets or readln function */
-		
-	        /* Separate command and argument from userCmd */
-	        strcpy(cmd, userCmd);  /* Modify in Homework 2.  Use strtok function */
-	        strcpy(argument, "");  /* Modify in Homework 2.  Use strtok function */
 
+		/* START OF DIAZ CHANGES HW2 */
+
+		fgets(userCmd, sizeof(userCmd), stdin); // Capture command via stdin from user and store in userCmd
+		userCmd[strcspn(userCmd, "\n")] = 0; // Remove newline char if present in userCmd
+		
+		// Note: strtok modifies userCmd by replacing delimeter with null terminator thus we will send full message to server before tokenizing
 		/* send the userCmd to the server */
 		status = sendMessage(ccSocket, userCmd, strlen(userCmd)+1);
-		if(status != OK)
-		{
+		if(status != OK) {
 		    break;
 		}
+
+		char *token = strtok(userCmd, COMMAND_DELIMETER); // Tokenize string buffer via delimeter
+
+		if(token != NULL) {			
+			// if present, first token will be entered command, we store in cmd and proceed to next token
+			strcpy(cmd, token);
+			token = strtok(NULL, COMMAND_DELIMETER);
+			if(token != NULL) {
+				// If another token is present, it represents a provided argument by user
+				strcpy(argument, token);
+			}
+			else {
+				argument[0] = '\0'; // Otherwise null terminator set if no argument is provided
+			}
+		}
+
+		/* END OF DIAZ CHANGES HW2 */
 
 		/* Receive reply message from the the server */
 		status = receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &msgSize);
-		if(status != OK)
-		{
+		
+		if(status != OK) {
 		    break;
 		}
-	}
-	while (strcmp(cmd, "quit") != 0);
+
+	} while (strcmp(cmd, "quit") != 0);
 
 	printf("Closing control connection \n");
 	close(ccSocket);  /* close control connection socket */
