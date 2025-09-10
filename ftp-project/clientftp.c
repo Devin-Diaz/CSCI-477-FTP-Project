@@ -28,9 +28,6 @@
 #define ER_SEND_FAILED -5
 #define ER_RECEIVE_FAILED -6
 
-/* DIAZ CHANGE HW2: Delimeter that will be used by tokenizer, added for readability purposes */
-#define COMMAND_DELIMETER " "
-
 /* Function prototypes */
 int clntConnect(char *serverName, int *s);
 int sendMessage (int s, char *msg, int msgSize);
@@ -109,12 +106,12 @@ int main(int argc, char *argv[]) {
 		    break;
 		}
 
-		char *token = strtok(userCmd, COMMAND_DELIMETER); // Tokenize string buffer via delimeter
+		char *token = strtok(userCmd, " "); // Tokenize string buffer via delimeter
 
 		if(token != NULL) {			
 			// if present, first token will be entered command, we store in cmd and proceed to next token
 			strcpy(cmd, token);
-			token = strtok(NULL, COMMAND_DELIMETER);
+			token = strtok(NULL, " ");
 			if(token != NULL) {
 				// If another token is present, it represents a provided argument by user
 				strcpy(argument, token);

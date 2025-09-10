@@ -117,22 +117,166 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 
+		/* START OF DIAZ CHANGES HW2 */
 
+		/* OFFICIAL IBM FTP REPLY CODES https://www.ibm.com/docs/en/zvm/7.2.0?topic=ftp-reply-codes */
 
-		/*
-		* Starting Homework#2 program to process all ftp commandsmust be added here.
-		* See Homework#2 for list of ftp commands to implement.
+		char *token = strtok(userCmd, " "); 		
+		if(token != NULL) { 
+			strcpy(cmd, token); 
+			token = strtok(NULL, " ");
+			if(token != NULL) {
+				strcpy(argument, token); 
+			}
+			else {
+				argument[0] = '\0'; 
+			}
+		}
+
+		if(strcmp(cmd, "quit") == 0) {
+			strcpy(replyMsg, "221 QUIT command received");
+			return (EXIT_SUCCESS);
+		}
+		else if(strcmp(cmd, "pwd") == 0) {
+			char cwdBuffer[1060];
+			if(getcwd(cwdBuffer, sizeof(cwdBuffer)) != NULL) {
+				int maxCwdLen = sizeof(replyMsg) - strlen("\n200 Command okay\n") - 1;
+        		snprintf(replyMsg, sizeof(replyMsg), "%.*s\n200 Command okay\n", maxCwdLen, cwdBuffer);
+			}
+			else {
+				strcpy(replyMsg, "550 Requested action not taken; file not found or no access");
+			}
+		}
+		else if(strcmp(cmd, "ls") == 0) {
+			char shellCmdBuffer[1060];
+			if(argument != '\0') {
+				snprintf(shellCmdBuffer, sizeof(shellCmdBuffer), "ls %s", argument);
+			}
+			else {
+				snprintf(shellCmdBuffer, sizeof(shellCmdBuffer), "ls");
+			}
+
+			FILE *fp = popen(shellCmdBuffer, "r");
+
+			if(fp == NULL) {
+				strcpy(replyMsg, "550 Failed to execute command\n");
+			}
+			else {
+				size_t n = fread(replyMsg, 1, sizeof(replyMsg) - strlen("200 Command okay\n") - 1, fp);
+				pclose(fp);
+				// Append "200 Command okay\n" after the output
+				snprintf(replyMsg + n, sizeof(replyMsg) - n, "200 Command okay\n");
+			}
+		}
+		else if(strcmp(cmd, "cd") == 0) {			
+			if(argument[0] == '\0') {
+				char *homeDirPath = getenv("HOME");
+				if(chdir(homeDirPath) == 0) {
+					strcpy(replyMsg, "200 Command okay");
+				}
+				else {
+					strcpy(replyMsg, "550 Failed to execute command");
+				}
+			}
+			else {
+				if(chdir(argument) == 0) {
+					strcpy(replyMsg, "200 Command okay");
+				} 
+				else {
+					strcpy(replyMsg, "550 Failed to execute command");
+				}
+			}
+		}
+		else if(strcmp(cmd, "mkdir") == 0 || strcmp(cmd, "rmdir") == 0 || strcmp(cmd, "touch") == 0 || strcmp(cmd, "rm") == 0) {
+			// Error check if argument is not present
+			if(argument[0] == '\0') {
+				strcpy(replyMsg, "501 Syntax error in parameters or arguments\n");
+			}
+			else {
+				char shellCmdBuffer[2048];
+				snprintf(shellCmdBuffer, sizeof(shellCmdBuffer), "%s %s",cmd, argument); // Format command into shellCmd buffer
+				
+				// break this out into a helper function potentially
+				int systemStatus = system(shellCmdBuffer); // retrieve status after system function call				
+				if(systemStatus != 0) {
+					strcpy(replyMsg, "550 Requested action not taken; file not found, file already exists, or no access");
+				}
+				else {
+					strcpy(replyMsg, "200 Command okay\n");
+				}
+			}
+		}
+		else if(strcmp(cmd, "stat") == 0) {
+			if(argument[0] != '\0') {
+				// Provide file or directory info, similar to ls -ld
+				char shellCmdBuffer[1060];
+				snprintf(shellCmdBuffer, sizeof(shellCmdBuffer), "ls -ld %s 2>&1", argument);
+				FILE *fp = popen(shellCmdBuffer, "r");
+				if(fp == NULL) {
+					strcpy(replyMsg, "550 Failed to execute stat command\n");
+				} else {
+					size_t n = fread(replyMsg, 1, sizeof(replyMsg) - strlen("211 End of status\n") - 1, fp);
+					pclose(fp);
+					snprintf(replyMsg + n, sizeof(replyMsg) - n, "211 End of status\n");
+				}
+			} 
+			else {
+				// General status info
+				snprintf(replyMsg, sizeof(replyMsg),
+					"211-FTP server status:\n"
+					"    Server running, no file transfer in progress.\n"
+					"    Connected to client.\n"
+					"211 End of status\n"
+				);
+			}
+		}
+		else if(strcmp(cmd, "help") == 0) {
+			char messageBuffer[1024];
+			snprintf(messageBuffer, sizeof(messageBuffer),
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n"
+				"%-10s\t\t%s\n",
+				"user [username]", "users username",
+				"pass [password[", "users password",
+				"quit", "quit myftp",
+				"mkdir [path]", "create remote directory",
+				"rmdir [path]", "delete remote directory",
+				"cd [path]", "change directory to path",
+				"touch [path]", "create remote file",
+				"rm [path]", "delete remote file",
+				"ls [-arg]", "display local directory listing",
+				"pwd", "display remote working directory",
+				"stat [path]", "display current status of server",
+				"help", "display this help text"
+			);
+			strcat(messageBuffer, "200 Command okay\n");
+			strcpy(replyMsg, messageBuffer);
+
+		}
+		else {
+			strcpy(replyMsg, "502 Command not implemented\n");
+		}
+
+		/* 
+		TODO
+		Command Name Syntax
+			1. user user username
+			2. pass pass password
 		*/
-
-	    /* Separate command and argument from userCmd */
-	    strcpy(cmd, userCmd);  /* Modify in Homework 2.  Use strtok function */
-	    strcpy(argument, "");  /* Modify in Homework 2.  Use strtok function */
 
 	    /*
  	     * ftp server sends only one reply message to the client for 
 	     * each command received in this implementation.
 	     */
-	    strcpy(replyMsg,"200 cmd okay\n");  /* Should have appropriate reply msg starting HW2 */
 	    status = sendMessage(ccSocket, replyMsg, strlen(replyMsg) + 1);	/* Added 1 to include NULL character in */
 		
 		/* the reply string strlen does not count NULL character */
