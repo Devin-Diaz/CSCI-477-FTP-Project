@@ -83,6 +83,30 @@ int main(int argc, char *argv[]) {
 		return (status);
 	}
 
+	// Diaz: Prompts user for their username, until valid username entered
+	do {
+		printf("Username: ");
+		fgets(userCmd, sizeof(userCmd), stdin);
+		userCmd[strcspn(userCmd, "\n")] = 0;
+		snprintf(cmd, sizeof(cmd), "user %.*s", (int)(sizeof(cmd) - 6), userCmd);
+		status = sendMessage(ccSocket, cmd, strlen(cmd) + 1);
+		if(status != OK) break;
+		status = receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &msgSize);
+		if(status != OK) break;
+	} while(strncmp(replyMsg, "331", 3) != 0);
+
+	// Diaz: If username entry is successful, password prompt is shown until correct password is entered
+	do {
+		printf("Password: ");
+		fgets(userCmd, sizeof(userCmd), stdin);
+		userCmd[strcspn(userCmd, "\n")] = 0;
+		snprintf(cmd, sizeof(cmd), "pass %.*s", (int)(sizeof(cmd) - 6), userCmd);
+		status = sendMessage(ccSocket, cmd, strlen(cmd) + 1);
+		if(status != OK) break;
+		status = receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &msgSize);
+		if(status != OK) break;
+	} while(strncmp(replyMsg, "230", 3) != 0);
+
 	/* 
 	 * Read an ftp command with argument, if any, in one line from user into userCmd.
 	 * Copy ftp command part into ftpCmd and the argument into arg array.
@@ -94,10 +118,9 @@ int main(int argc, char *argv[]) {
 	do {
 		printf("my ftp> ");
 
-		/* START OF DIAZ CHANGES HW2 */
-
-		fgets(userCmd, sizeof(userCmd), stdin); // Capture command via stdin from user and store in userCmd
-		userCmd[strcspn(userCmd, "\n")] = 0; // Remove newline char if present in userCmd
+		// Diaz: Capture command provided by the user that will be sent to the server
+		fgets(userCmd, sizeof(userCmd), stdin); 
+		userCmd[strcspn(userCmd, "\n")] = 0; 
 		
 		// Note: strtok modifies userCmd by replacing delimeter with null terminator thus we will send full message to server before tokenizing
 		/* send the userCmd to the server */
@@ -106,22 +129,25 @@ int main(int argc, char *argv[]) {
 		    break;
 		}
 
-		char *token = strtok(userCmd, " "); // Tokenize string buffer via delimeter
+		// Diaz: Tokenize command provided by user via space delimeter
+		char *token = strtok(userCmd, " "); 
 
+		/*
+		Diaz:
+		First token present indicates a command that will be stored in cmd, if another token is present
+		after the first, it indicates an argument associated with the command which is stored in argument buffer,
+		otherwise argument is set to null terminator.
+		*/
 		if(token != NULL) {			
-			// if present, first token will be entered command, we store in cmd and proceed to next token
 			strcpy(cmd, token);
 			token = strtok(NULL, " ");
 			if(token != NULL) {
-				// If another token is present, it represents a provided argument by user
 				strcpy(argument, token);
 			}
 			else {
-				argument[0] = '\0'; // Otherwise null terminator set if no argument is provided
+				argument[0] = '\0';
 			}
 		}
-
-		/* END OF DIAZ CHANGES HW2 */
 
 		/* Receive reply message from the the server */
 		status = receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &msgSize);

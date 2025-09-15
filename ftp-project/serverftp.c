@@ -38,6 +38,8 @@ char userCmd[1024];	/* user typed ftp command line received from client */
 char cmd[1024];		/* ftp command (without argument) extracted from userCmd */
 char argument[1024];	/* argument (without ftp command) extracted from userCmd */
 char replyMsg[1024];       /* buffer to send reply message to client */
+int loggedIn = 0; // Diaz: Denotes whether our user has signed in or not so we can skip "auth phase"
+char currentUserBuffer[1024] = ""; // Diaz: Buffer that stores the user entered argument of their credential
 
 /*
  * main
@@ -117,10 +119,13 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 
-		/* START OF DIAZ CHANGES HW2 */
-
-		/* OFFICIAL IBM FTP REPLY CODES https://www.ibm.com/docs/en/zvm/7.2.0?topic=ftp-reply-codes */
-
+		
+		/*
+		Diaz:
+		First token present indicates a command that will be stored in cmd, if another token is present
+		after the first, it indicates an argument associated with the command which is stored in argument buffer,
+		otherwise argument is set to null terminator.
+		*/
 		char *token = strtok(userCmd, " "); 		
 		if(token != NULL) { 
 			strcpy(cmd, token); 
@@ -133,6 +138,60 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+		// Diaz: Hard-coded credentials for user and password commands for testing
+		char *users[] = {"diaz", "yamal"};
+		char *passwords[] = {"token12", "abibas19"};
+		int numUsers = 2;
+
+		/* 
+		Diaz:
+		While our user is not logged in, we enter the following blocks that assert that our user entered credentials
+		match an entry in our hardcoded users and passwords array. If not successful, we send the proper ftp status
+		code back to the client, otherwise we set loggedIn to 1 and proceed our user to now be able to enter commands
+		in our ftp server.
+		*/
+		if (!loggedIn) {
+			if(strcmp(cmd, "user") == 0) {
+				int found = 0;
+				for(int i = 0; i < numUsers; i++) {
+					if(strcmp(argument, users[i]) == 0) {
+						found = 1;
+						strcpy(currentUserBuffer, argument);
+						break;
+					}
+				}
+				if(found) {
+					strcpy(replyMsg, "331 Username OK, need password\n");
+				} else {
+					strcpy(replyMsg, "530 Invalid username\n");
+				}
+			} else if(strcmp(cmd, "pass") == 0) {
+				int found = 0;
+				for(int i = 0; i < numUsers; i++) {
+					if(strcmp(currentUserBuffer, users[i]) == 0 && strcmp(argument, passwords[i]) == 0) {
+						found = 1;
+						break;
+					}
+				}
+				if(found) {
+					loggedIn = 1;
+					strcpy(replyMsg, "230 User logged in, proceed\n");
+				} else {
+					strcpy(replyMsg, "530 Invalid password\n");
+				}
+			} else {
+				strcpy(replyMsg, "530 Not logged in. Please login first.\n");
+			}
+			status = sendMessage(ccSocket, replyMsg, strlen(replyMsg) + 1);
+			if(status < 0) break;
+			continue; 
+		}
+		
+		/* 
+		Diaz: 
+		The following is a variety of commands the ftp server supports, command or argument is not recognized,
+		we default to a status 502 which indicates command not implemented
+		*/
 		if(strcmp(cmd, "quit") == 0) {
 			strcpy(replyMsg, "221 QUIT command received");
 			return (EXIT_SUCCESS);
@@ -164,7 +223,6 @@ int main(int argc, char *argv[]) {
 			else {
 				size_t n = fread(replyMsg, 1, sizeof(replyMsg) - strlen("200 Command okay\n") - 1, fp);
 				pclose(fp);
-				// Append "200 Command okay\n" after the output
 				snprintf(replyMsg + n, sizeof(replyMsg) - n, "200 Command okay\n");
 			}
 		}
@@ -188,16 +246,13 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		else if(strcmp(cmd, "mkdir") == 0 || strcmp(cmd, "rmdir") == 0 || strcmp(cmd, "touch") == 0 || strcmp(cmd, "rm") == 0) {
-			// Error check if argument is not present
 			if(argument[0] == '\0') {
 				strcpy(replyMsg, "501 Syntax error in parameters or arguments\n");
 			}
 			else {
 				char shellCmdBuffer[2048];
-				snprintf(shellCmdBuffer, sizeof(shellCmdBuffer), "%s %s",cmd, argument); // Format command into shellCmd buffer
-				
-				// break this out into a helper function potentially
-				int systemStatus = system(shellCmdBuffer); // retrieve status after system function call				
+				snprintf(shellCmdBuffer, sizeof(shellCmdBuffer), "%s %s",cmd, argument); 				
+				int systemStatus = system(shellCmdBuffer);				
 				if(systemStatus != 0) {
 					strcpy(replyMsg, "550 Requested action not taken; file not found, file already exists, or no access");
 				}
@@ -208,7 +263,6 @@ int main(int argc, char *argv[]) {
 		}
 		else if(strcmp(cmd, "stat") == 0) {
 			if(argument[0] != '\0') {
-				// Provide file or directory info, similar to ls -ld
 				char shellCmdBuffer[1060];
 				snprintf(shellCmdBuffer, sizeof(shellCmdBuffer), "ls -ld %s 2>&1", argument);
 				FILE *fp = popen(shellCmdBuffer, "r");
@@ -221,7 +275,6 @@ int main(int argc, char *argv[]) {
 				}
 			} 
 			else {
-				// General status info
 				snprintf(replyMsg, sizeof(replyMsg),
 					"211-FTP server status:\n"
 					"    Server running, no file transfer in progress.\n"
@@ -265,13 +318,6 @@ int main(int argc, char *argv[]) {
 		else {
 			strcpy(replyMsg, "502 Command not implemented\n");
 		}
-
-		/* 
-		TODO
-		Command Name Syntax
-			1. user user username
-			2. pass pass password
-		*/
 
 	    /*
  	     * ftp server sends only one reply message to the client for 
