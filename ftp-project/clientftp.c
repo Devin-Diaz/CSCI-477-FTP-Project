@@ -1,4 +1,6 @@
 /* 
+ * HOMEWORK #2 COMPLETED BY DEVIN DIAZ & KLAUDIO VULKA
+ *
  * Client FTP program
  *
  * NOTE: Starting homework #2, add more comments here describing the overall function
@@ -16,7 +18,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-/* Diaz reserved port number for control connection */
+/* Diaz & Vulka reserved port number for control connection */
 #define SERVER_FTP_PORT 2125 
 
 /* Error and OK codes */
@@ -83,7 +85,7 @@ int main(int argc, char *argv[]) {
 		return (status);
 	}
 
-	// Diaz: Prompts user for their username, until valid username entered
+	// Diaz & Vulka: Prompts user for their username, until valid username entered
 	do {
 		printf("Username: ");
 		fgets(userCmd, sizeof(userCmd), stdin);
@@ -95,7 +97,7 @@ int main(int argc, char *argv[]) {
 		if(status != OK) break;
 	} while(strncmp(replyMsg, "331", 3) != 0);
 
-	// Diaz: If username entry is successful, password prompt is shown until correct password is entered
+	// Diaz & Vulka: If username entry is successful, password prompt is shown until correct password is entered
 	do {
 		printf("Password: ");
 		fgets(userCmd, sizeof(userCmd), stdin);
@@ -118,7 +120,7 @@ int main(int argc, char *argv[]) {
 	do {
 		printf("my ftp> ");
 
-		// Diaz: Capture command provided by the user that will be sent to the server
+		// Diaz & Vulka: Capture command provided by the user that will be sent to the server
 		fgets(userCmd, sizeof(userCmd), stdin); 
 		userCmd[strcspn(userCmd, "\n")] = 0; 
 		
@@ -129,11 +131,11 @@ int main(int argc, char *argv[]) {
 		    break;
 		}
 
-		// Diaz: Tokenize command provided by user via space delimeter
+		// Diaz & Vulka: Tokenize command provided by user via space delimeter
 		char *token = strtok(userCmd, " "); 
 
 		/*
-		Diaz:
+		Diaz & Vulka:
 		First token present indicates a command that will be stored in cmd, if another token is present
 		after the first, it indicates an argument associated with the command which is stored in argument buffer,
 		otherwise argument is set to null terminator.

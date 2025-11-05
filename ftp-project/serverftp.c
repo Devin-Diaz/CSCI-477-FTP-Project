@@ -1,6 +1,9 @@
 /* 
+ * HOMEWORK #2 COMPLETED BY DEVIN DIAZ & KLAUDIO VULKA
+ *
  * server FTP program
  *
+ * 
  * NOTE: Starting homework #2, add more comments here describing the overall function
  * performed by server ftp program
  * This includes, the list of ftp commands processed by server ftp.
@@ -38,8 +41,8 @@ char userCmd[1024];	/* user typed ftp command line received from client */
 char cmd[1024];		/* ftp command (without argument) extracted from userCmd */
 char argument[1024];	/* argument (without ftp command) extracted from userCmd */
 char replyMsg[1024];       /* buffer to send reply message to client */
-int loggedIn = 0; // Diaz: Denotes whether our user has signed in or not so we can skip "auth phase"
-char currentUserBuffer[1024] = ""; // Diaz: Buffer that stores the user entered argument of their credential
+int loggedIn = 0; // Diaz & Vulka: Denotes whether our user has signed in or not so we can skip "auth phase"
+char currentUserBuffer[1024] = ""; // Diaz & Vulka: Buffer that stores the user entered argument of their credential
 
 /*
  * main
@@ -121,7 +124,7 @@ int main(int argc, char *argv[]) {
 
 		
 		/*
-		Diaz:
+		Diaz & Vulka:
 		First token present indicates a command that will be stored in cmd, if another token is present
 		after the first, it indicates an argument associated with the command which is stored in argument buffer,
 		otherwise argument is set to null terminator.
@@ -138,13 +141,13 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		// Diaz: Hard-coded credentials for user and password commands for testing
-		char *users[] = {"diaz", "yamal"};
-		char *passwords[] = {"token12", "abibas19"};
+		// Diaz & Vulka: Hard-coded credentials for user and password commands for testing
+		char *users[] = {"diaz", "yamal", "qwerty2", "vulka"};
+		char *passwords[] = {"token12", "abibas19", "password8", "destiny"};
 		int numUsers = 2;
 
 		/* 
-		Diaz:
+		Diaz & Vulka:
 		While our user is not logged in, we enter the following blocks that assert that our user entered credentials
 		match an entry in our hardcoded users and passwords array. If not successful, we send the proper ftp status
 		code back to the client, otherwise we set loggedIn to 1 and proceed our user to now be able to enter commands
@@ -188,7 +191,7 @@ int main(int argc, char *argv[]) {
 		}
 		
 		/* 
-		Diaz: 
+		Diaz & Vulka: 
 		The following is a variety of commands the ftp server supports, command or argument is not recognized,
 		we default to a status 502 which indicates command not implemented
 		*/
@@ -299,7 +302,7 @@ int main(int argc, char *argv[]) {
 				"%-10s\t\t%s\n"
 				"%-10s\t\t%s\n",
 				"user [username]", "users username",
-				"pass [password[", "users password",
+				"pass [password]", "users password",
 				"quit", "quit myftp",
 				"mkdir [path]", "create remote directory",
 				"rmdir [path]", "delete remote directory",
