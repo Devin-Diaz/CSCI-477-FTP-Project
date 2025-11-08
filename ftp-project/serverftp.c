@@ -1,5 +1,5 @@
 /* 
- * HOMEWORK #2 COMPLETED BY DEVIN DIAZ & KLAUDIO VULKA
+ * HOMEWORK #3 COMPLETED BY DEVIN DIAZ & KLAUDIO VULKA
  *
  * server FTP program
  *
@@ -21,6 +21,8 @@
 
 #define SERVER_FTP_PORT 2125
 
+#define DATA_FTP_PORT 2126 // Diaz & Vulka: Added data port constant
+
 /* Error and OK codes */
 #define OK 0
 #define ER_INVALID_HOST_NAME -1
@@ -33,6 +35,7 @@
 
 /* Function prototypes */
 int svcInitServer(int *s);
+int clntConnectData(const char *serverName, int *s); // Diaz & Vulka: Adding prototype for control socket
 int sendMessage (int s, char *msg, int  msgSize);
 int receiveMessage(int s, char *buffer, int  bufferSize, int *msgSize);
 
@@ -318,6 +321,96 @@ int main(int argc, char *argv[]) {
 			strcpy(replyMsg, messageBuffer);
 
 		}
+		else if (strcmp(cmd, "send") == 0) {
+			/* client will send us a file over data connection (server connects) */
+			if (argument[0] == '\0') {
+				strcpy(replyMsg, "501 Syntax: send <filename>\n");
+			} else {
+				/* (1) tell client we're ready */
+				strcpy(replyMsg, "150 Opening ASCII mode data connection for send\n");
+				status = sendMessage(ccSocket, replyMsg, strlen(replyMsg)+1);
+				if (status != OK) {
+					/* control send failed */
+					strcpy(replyMsg, "426 Connection closed; transfer aborted\n");
+				} else {
+					/* (2) connect to client's data port */
+					int dcSocket;
+					if (clntConnectData("127.0.0.1", &dcSocket) != OK) {
+						strcpy(replyMsg, "425 Can't open data connection\n");
+					} else {
+						FILE *fp = fopen(argument, "w");  /* ASCII mode, write to server disk */
+						if (!fp) {
+							perror("fopen (server send/receive)");
+							close(dcSocket);  /* <-- IMPORTANT: close data socket on error */
+							strcpy(replyMsg, "550 Requested action not taken; file not accessible\n");
+						} else {
+							char buffer[100];
+							int got = 0;
+							int ok = 1;
+							do {
+								if (receiveMessage(dcSocket, buffer, sizeof(buffer), &got) != OK) { ok = 0; break; }
+								if (got > 0) {
+									size_t w = fwrite(buffer, 1, (size_t)got, fp);
+									if (w != (size_t)got) { perror("fwrite"); ok = 0; break; }
+								}
+							} while (got > 0);
+							fclose(fp);
+							close(dcSocket);
+							if (ok) strcpy(replyMsg, "226 Transfer complete\n");
+							else    strcpy(replyMsg, "426 Connection closed; transfer aborted\n");
+						}
+					}
+				}
+			}
+		}
+
+		else if (strcmp(cmd, "recv") == 0) {
+			/* client will receive a file (server reads and sends it) */
+			if (argument[0] == '\0') {
+				strcpy(replyMsg, "501 Syntax: recv <filename>\n");
+			} else {
+				/* 1) Try opening the file FIRST. If this fails, DO NOT send 150 or open data. */
+				FILE *fp = fopen(argument, "r");  /* ASCII mode, read from server disk */
+				if (!fp) {
+					perror("fopen (server recv/send)");
+					strcpy(replyMsg, "550 Requested action not taken; file not accessible\n");
+				} else {
+					/* 2) Now we know we can send it: send preliminary 150, then open data */
+					strcpy(replyMsg, "150 Opening ASCII mode data connection for recv\n");
+					status = sendMessage(ccSocket, replyMsg, strlen(replyMsg)+1);
+					if (status != OK) {
+						/* control send failed — abort gracefully */
+						fclose(fp);
+						strcpy(replyMsg, "426 Connection closed; transfer aborted\n");
+					} else {
+						int dcSocket;
+						if (clntConnectData("127.0.0.1", &dcSocket) != OK) {
+							fclose(fp);
+							strcpy(replyMsg, "425 Can't open data connection\n");
+						} else {
+							/* 3) Stream file */
+							char buffer[100];
+							size_t n;
+							int ok = 1;
+							while ((n = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
+								if (sendMessage(dcSocket, buffer, (int)n) != OK) {
+									perror("send(data)");
+									ok = 0;
+									break;
+								}
+							}
+							if (ferror(fp)) { perror("fread"); ok = 0; }
+							fclose(fp);
+							close(dcSocket);
+
+							/* 4) Final reply */
+							if (ok) strcpy(replyMsg, "226 Transfer complete\n");
+							else    strcpy(replyMsg, "426 Connection closed; transfer aborted\n");
+						}
+					}
+				}
+			}
+		}
 		else {
 			strcpy(replyMsg, "502 Command not implemented\n");
 		}
@@ -420,6 +513,46 @@ int svcInitServer (
 
 	return(OK); /*successful return */
 }
+
+int clntConnectData(const char *serverName, int *s) {
+    int sock;
+    struct sockaddr_in clientAddress, serverAddress;
+    struct hostent *serverIPstructure;
+
+    if ((serverIPstructure = gethostbyname(serverName)) == NULL) {
+        printf("%s is unknown server.\n", serverName);
+        return ER_INVALID_HOST_NAME;
+    }
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("cannot create socket");
+        return ER_CREATE_SOCKET_FAILED;
+    }
+    memset((char *)&clientAddress, 0, sizeof(clientAddress));
+    clientAddress.sin_family = AF_INET;
+    clientAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    clientAddress.sin_port = 0;   /* ephemeral */
+
+    if (bind(sock, (struct sockaddr *)&clientAddress, sizeof(clientAddress)) < 0) {
+        perror("cannot bind");
+        close(sock);
+        return ER_BIND_FAILED;
+    }
+
+    memset((char *)&serverAddress, 0, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    memcpy((char *)&serverAddress.sin_addr, serverIPstructure->h_addr,
+           serverIPstructure->h_length);
+    serverAddress.sin_port = htons(DATA_FTP_PORT);   /* ← data port */
+
+    if (connect(sock, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) {
+        perror("Cannot connect to client data port");
+        close(sock);
+        return ER_CONNECT_FAILED;
+    }
+    *s = sock;
+    return OK;
+}
+
 
 
 /*
