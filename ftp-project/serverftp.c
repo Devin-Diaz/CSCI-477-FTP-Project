@@ -321,6 +321,7 @@ int main(int argc, char *argv[]) {
 			strcpy(replyMsg, messageBuffer);
 
 		}
+		// Diaz & Vulka: send implementation, server side
 		else if (strcmp(cmd, "send") == 0) {
 			/* client will send us a file over data connection (server connects) */
 			if (argument[0] == '\0') {
@@ -363,19 +364,20 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-
+		
+		// Diaz & Vulka: recv implementation
 		else if (strcmp(cmd, "recv") == 0) {
 			/* client will receive a file (server reads and sends it) */
 			if (argument[0] == '\0') {
 				strcpy(replyMsg, "501 Syntax: recv <filename>\n");
 			} else {
-				/* 1) Try opening the file FIRST. If this fails, DO NOT send 150 or open data. */
+				/* Try opening the file FIRST. If this fails, DO NOT send 150 or open data. */
 				FILE *fp = fopen(argument, "r");  /* ASCII mode, read from server disk */
 				if (!fp) {
 					perror("fopen (server recv/send)");
 					strcpy(replyMsg, "550 Requested action not taken; file not accessible\n");
 				} else {
-					/* 2) Now we know we can send it: send preliminary 150, then open data */
+					/* Now we know we can send it: send preliminary 150, then open data */
 					strcpy(replyMsg, "150 Opening ASCII mode data connection for recv\n");
 					status = sendMessage(ccSocket, replyMsg, strlen(replyMsg)+1);
 					if (status != OK) {
@@ -388,7 +390,7 @@ int main(int argc, char *argv[]) {
 							fclose(fp);
 							strcpy(replyMsg, "425 Can't open data connection\n");
 						} else {
-							/* 3) Stream file */
+							/* Stream file */
 							char buffer[100];
 							size_t n;
 							int ok = 1;
@@ -403,7 +405,7 @@ int main(int argc, char *argv[]) {
 							fclose(fp);
 							close(dcSocket);
 
-							/* 4) Final reply */
+							/* Final reply */
 							if (ok) strcpy(replyMsg, "226 Transfer complete\n");
 							else    strcpy(replyMsg, "426 Connection closed; transfer aborted\n");
 						}

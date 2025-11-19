@@ -150,13 +150,13 @@ int main(int argc, char *argv[]) {
 		int repliesAlreadyRead = 0;  /* <-- if we consume replies inside a branch, skip generic read later */
 
 		if (tok) {
-			/* -------------------- SEND -------------------- */
+			// Diaz & Vulka: send implementation, client side
 			if (strcmp(tok, "send") == 0) {
 				fname = strtok(NULL, " ");
 				if (!fname) {
 					printf("send: missing filename\n");
 				} else {
-					/* For symmetry/robustness: read first reply (should be 150) */
+					/* read first reply (should be 150) */
 					int firstSize = 0;
 					if (receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &firstSize) != OK) {
 						fprintf(stderr, "receiveMessage(control) pre-send failed\n");
@@ -165,14 +165,13 @@ int main(int argc, char *argv[]) {
 					if (firstSize > 0) printf("%s\n", replyMsg);
 
 					if (firstSize <= 0 || replyMsg[0] != '1') {
-						/* Not preliminary -> do not accept(), just return to prompt */
 						repliesAlreadyRead = 1; /* we already consumed server reply for this cmd */
 					} else {
 						/* wait for server to connect the data socket and upload the file */
 						int dcSocket = accept(dataListenSocket, NULL, NULL);
 						if (dcSocket < 0) {
 							perror("accept (data)");
-							/* try to read final reply (if any) so channel isn't stuck */
+							/* try to read final reply if any so channel isn't stuck */
 							int tmp = 0;
 							if (receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &tmp) == OK && tmp > 0)
 								printf("%s\n", replyMsg);
@@ -220,7 +219,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 			}
-			/* -------------------- RECV -------------------- */
+			// Diaz & Vulka: recv implementation, client side
 			else if (strcmp(tok, "recv") == 0) {
 				fname = strtok(NULL, " ");
 				if (!fname) {
@@ -228,18 +227,17 @@ int main(int argc, char *argv[]) {
 				} else {
 					int firstSize = 0;
 
-					/* 1) Read the first control reply BEFORE opening data */
+					/* Read the first control reply BEFORE opening data */
 					if (receiveMessage(ccSocket, replyMsg, sizeof(replyMsg), &firstSize) != OK) {
 						fprintf(stderr, "receiveMessage(control) after 'recv' failed\n");
 						break;
 					}
 					if (firstSize > 0) printf("%s\n", replyMsg);
 
-					/* If not preliminary (doesn't start with '1'), don't accept() – just return to prompt */
 					if (firstSize <= 0 || replyMsg[0] != '1') {
 						repliesAlreadyRead = 1; /* we consumed what server sent for this cmd */
 					} else {
-						/* 2) Preliminary was OK (150...) → accept data and receive file */
+						/* Preliminary was OK (150...) → accept data and receive file */
 						int dcSocket = accept(dataListenSocket, NULL, NULL);
 						if (dcSocket < 0) {
 							perror("accept(data)");
@@ -281,7 +279,7 @@ int main(int argc, char *argv[]) {
 								fclose(fp);
 								close(dcSocket);
 
-								/* 3) Drain control replies until final (non-1xx) so we don’t hang */
+								/* Drain control replies until final (non-1xx) so we don’t hang */
 								int done = 0;
 								while (!done) {
 									int sz = 0;
@@ -291,7 +289,7 @@ int main(int argc, char *argv[]) {
 									}
 									if (sz <= 0) break;
 									printf("%s\n", replyMsg);
-									if (replyMsg[0] != '1') done = 1;   /* final reply (e.g., 226/4xx/5xx) */
+									if (replyMsg[0] != '1') done = 1;
 								}
 								repliesAlreadyRead = 1;
 							}
